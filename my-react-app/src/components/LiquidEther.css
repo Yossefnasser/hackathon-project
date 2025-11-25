@@ -4,4 +4,9 @@
     width: 100%;
     height: 100%;
     touch-action: none;
+    pointer-events: auto;
+}
+
+.liquid-ether-container canvas {
+    pointer-events: auto;
 }

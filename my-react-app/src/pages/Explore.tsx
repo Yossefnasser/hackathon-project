@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import './Explore.css';
 
 // Framework Icon Components
@@ -37,22 +39,77 @@ const NodeIcon = () => (
     </svg>
 );
 
+const AngularIcon = () => (
+    <svg viewBox="0 0 24 24" fill="currentColor" className="framework-icon">
+        <path d="M9.93 12.645h4.134L12 7.66M11.996 0l-12 4.2 1.83 15.8L12 24l10.17-3.99 1.83-15.81L11.996 0zm7.058 18.31h-2.636l-1.42-3.51H8.995l-1.42 3.51H4.937l7.06-15.62 7.057 15.62z" />
+    </svg>
+);
+
+const SpringIcon = () => (
+    <svg viewBox="0 0 24 24" fill="currentColor" className="framework-icon">
+        <path d="M21.8537 1.4158a10.4504 10.4504 0 0 1-1.284 2.2471A11.9666 11.9666 0 1 0 3.8518 20.7757l.4445.3951a11.9543 11.9543 0 0 0 19.6316-8.2971c.3457-2.0126.1997-4.0781-.4092-6.0174a.2346.2346 0 0 0-.3384-.1188 7.4792 7.4792 0 0 1-1.3266.6783zm-8.7119 18.5734c-4.4446 0-8.0538-3.6092-8.0538-8.0538 0-1.6289.4851-3.1443 1.3171-4.4204.1465-.2249.4411-.2877.6583-.1416 1.2686.8537 2.8779 1.3171 4.5773 1.3171 1.6289 0 3.1443-.4851 4.4204-1.3171.2249-.1465.5195-.0837.6583.1416.8537 1.2686 1.3171 2.8779 1.3171 4.4204 0 4.4446-3.6092 8.0538-8.0538 8.0538z" />
+    </svg>
+);
+
+const FlaskIcon = () => (
+    <svg viewBox="0 0 24 24" fill="currentColor" className="framework-icon">
+        <path d="M7.5 3v9.75L2.25 21h19.5L16.5 12.75V3h-9zM9 4.5h6v7.875l4.125 6.375H4.875L9 12.375V4.5z" />
+    </svg>
+);
+
 export default function Explore() {
-    const backendFrameworks = [
-        { name: 'Django', issues: 78, icon: <DjangoIcon /> },
-        { name: 'FastAPI', issues: 42, icon: <FastAPIIcon /> },
+    const [searchQuery, setSearchQuery] = useState('');
+    const [selectedCategory, setSelectedCategory] = useState('All');
+
+    const allFrameworks = [
+        { name: 'Django', issues: 78, category: 'Backend', icon: <DjangoIcon />, color: '#092e20' },
+        { name: 'FastAPI', issues: 42, category: 'Backend', icon: <FastAPIIcon />, color: '#009688' },
+        { name: 'Spring Boot', issues: 156, category: 'Backend', icon: <SpringIcon />, color: '#6db33f' },
+        { name: 'Flask', issues: 89, category: 'Backend', icon: <FlaskIcon />, color: '#000000' },
+        { name: 'React', issues: 124, category: 'Frontend', icon: <ReactIcon />, color: '#61dafb' },
+        { name: 'Vue.js', issues: 110, category: 'Frontend', icon: <VueIcon />, color: '#42b883' },
+        { name: 'Angular', issues: 98, category: 'Frontend', icon: <AngularIcon />, color: '#dd0031' },
+        { name: 'Node.js', issues: 203, category: 'Runtime', icon: <NodeIcon />, color: '#339933' },
+        { name: 'Laravel', issues: 95, category: 'Backend', icon: <LaravelIcon />, color: '#ff2d20' },
     ];
 
-    const frontendFrameworks = [
-        { name: 'React', issues: 124, icon: <ReactIcon /> },
-        { name: 'Laravel', issues: 95, icon: <LaravelIcon /> },
-        { name: 'Vue.js', issues: 110, icon: <VueIcon /> },
-        { name: 'Node.js', issues: 203, icon: <NodeIcon /> },
-    ];
+    const categories = ['All', 'Backend', 'Frontend', 'Runtime'];
+
+    const filteredFrameworks = allFrameworks.filter(framework => {
+        const matchesSearch = framework.name.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesCategory = selectedCategory === 'All' || framework.category === selectedCategory;
+        return matchesSearch && matchesCategory;
+    });
+
+    const groupedFrameworks = filteredFrameworks.reduce((acc, framework) => {
+        if (!acc[framework.category]) {
+            acc[framework.category] = [];
+        }
+        acc[framework.category].push(framework);
+        return acc;
+    }, {} as Record<string, typeof allFrameworks>);
+
+    const totalIssues = allFrameworks.reduce((sum, fw) => sum + fw.issues, 0);
 
     return (
         <div className="explore-page">
             <div className="explore-container">
+                {/* Stats Bar */}
+                <div className="explore-stats">
+                    <div className="stat-card">
+                        <div className="stat-value">{allFrameworks.length}</div>
+                        <div className="stat-label">Technologies</div>
+                    </div>
+                    <div className="stat-card">
+                        <div className="stat-value">{totalIssues}</div>
+                        <div className="stat-label">Open Tasks</div>
+                    </div>
+                    <div className="stat-card">
+                        <div className="stat-value">{categories.length - 1}</div>
+                        <div className="stat-label">Categories</div>
+                    </div>
+                </div>
+
                 <div className="explore-header">
                     <h1 className="explore-title">Find Your Next Challenge</h1>
                     <p className="explore-subtitle">
@@ -68,59 +125,69 @@ export default function Explore() {
                         </svg>
                         <input
                             type="text"
-                            placeholder="Search for issues, technologies, or repos..."
+                            placeholder="Search for technologies..."
                             className="search-input"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
                         />
+                        {searchQuery && (
+                            <button
+                                className="clear-search-explore"
+                                onClick={() => setSearchQuery('')}
+                                aria-label="Clear search"
+                            >
+                                ×
+                            </button>
+                        )}
                     </div>
                     <div className="filter-buttons">
-                        <button className="filter-btn">
-                            Difficulty
-                            <span className="dropdown-icon">▼</span>
-                        </button>
-                        <button className="filter-btn">
-                            Label
-                            <span className="dropdown-icon">▼</span>
-                        </button>
-                        <button className="filter-btn">
-                            Sort: Newest
-                            <span className="dropdown-icon">▼</span>
-                        </button>
+                        {categories.map(category => (
+                            <button
+                                key={category}
+                                className={`filter-btn ${selectedCategory === category ? 'active' : ''}`}
+                                onClick={() => setSelectedCategory(category)}
+                            >
+                                {category}
+                            </button>
+                        ))}
                     </div>
                 </div>
 
-                <div className="frameworks-section">
-                    <div className="framework-category">
-                        <h2 className="category-title">Backend Frameworks</h2>
-                        <div className="framework-grid">
-                            {backendFrameworks.map((framework) => (
-                                <a key={framework.name} href="#" className="framework-card">
-                                    <div className="framework-logo">{framework.icon}</div>
-                                    <div className="framework-info">
-                                        <h3 className="framework-name">{framework.name}</h3>
-                                        <p className="framework-issues">{framework.issues} Issues</p>
-                                    </div>
-                                </a>
-                            ))}
-                        </div>
+                {filteredFrameworks.length === 0 ? (
+                    <div className="no-results-explore">
+                        <div className="no-results-icon-explore">🔍</div>
+                        <h3 className="no-results-title-explore">No technologies found</h3>
+                        <p className="no-results-text-explore">
+                            Try adjusting your search or filters
+                        </p>
                     </div>
-
-                    <div className="framework-category">
-                        <h2 className="category-title">Frontend Frameworks</h2>
-                        <div className="framework-grid">
-                            {frontendFrameworks.map((framework) => (
-                                <a key={framework.name} href="#" className="framework-card">
-                                    <div className="framework-logo">{framework.icon}</div>
-                                    <div className="framework-info">
-                                        <h3 className="framework-name">{framework.name}</h3>
-                                        <p className="framework-issues">{framework.issues} Open Tasks</p>
-                                    </div>
-                                </a>
-                            ))}
-                        </div>
+                ) : (
+                    <div className="frameworks-section">
+                        {Object.entries(groupedFrameworks).map(([category, frameworks]) => (
+                            <div key={category} className="framework-category">
+                                <h2 className="category-title">{category}</h2>
+                                <div className="framework-grid">
+                                    {frameworks.map((framework, index) => (
+                                        <Link
+                                            key={framework.name}
+                                            to="/tasks"
+                                            className="framework-card"
+                                            style={{ animationDelay: `${index * 0.05}s` }}
+                                        >
+                                            <div className="framework-logo">{framework.icon}</div>
+                                            <div className="framework-info">
+                                                <h3 className="framework-name">{framework.name}</h3>
+                                                <p className="framework-issues">{framework.issues} Open Tasks</p>
+                                            </div>
+                                            <div className="framework-arrow">→</div>
+                                        </Link>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
                     </div>
-                </div>
+                )}
             </div>
-
         </div>
     );
 }
