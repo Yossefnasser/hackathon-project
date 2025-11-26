@@ -4,13 +4,13 @@ import * as THREE from 'three';
 import './LiquidEther.css';
 
 export default function LiquidEther({
-    mouseForce = 20,
+    mouseForce = 10, // Reduced force
     cursorSize = 100,
-    isViscous = false,
-    viscous = 30,
+    isViscous = true, // Enable viscosity for calmer feel
+    viscous = 50, // Higher viscosity
     iterationsViscous = 32,
     iterationsPoisson = 32,
-    dt = 0.014,
+    dt = 0.005, // Slower time step
     BFECC = true,
     resolution = 0.5,
     isBounce = false,
@@ -18,11 +18,11 @@ export default function LiquidEther({
     style = {},
     className = '',
     autoDemo = true,
-    autoSpeed = 0.5,
-    autoIntensity = 2.2,
+    autoSpeed = 0.1, // Much slower auto movement
+    autoIntensity = 0.5, // Less intense
     takeoverDuration = 0.25,
-    autoResumeDelay = 1000,
-    autoRampDuration = 0.6
+    autoResumeDelay = 2000, // Longer delay before resuming auto
+    autoRampDuration = 1.0 // Slower ramp up
 }) {
     const mountRef = useRef(null);
     const webglRef = useRef(null);
