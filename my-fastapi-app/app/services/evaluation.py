@@ -1,4 +1,3 @@
-
 import json
 import re
 from typing import Dict, Any
@@ -7,7 +6,7 @@ from g4f.client import AsyncClient
 
 class CodeEvaluationService:
     def __init__(self):
-        self.client = Client()
+        self.client = AsyncClient()
 
         
     async def evaluate_code(self, issue_title: str, issue_body: str, original_code: str, user_code: str) -> Dict[str, Any]:
@@ -51,14 +50,19 @@ Add one short sentence explanation for each metric."""
 
         try:
             # Use g4f to get evaluation from LLM
-            response = self.client.chat.completions.create(
+            response = await self.client.chat.completions.create(
                 model="gpt-4o",
                 messages=[{"role": "user", "content": prompt}],
                 web_search=False
             )
+
+            print("Raw LLM response:", response)  # Debug print
+            
+            # Fix: Access message content as an attribute, not a dict
+            message_content = response.choices[0].message.content
             
             # Extract JSON from response
-            json_match = re.search(r'\{[^{}]*\}', response)
+            json_match = re.search(r'\{[^{}]*\}', message_content)
             if json_match:
                 evaluation = json.loads(json_match.group())
                 
@@ -68,13 +72,13 @@ Add one short sentence explanation for each metric."""
                     return {
                         "success": True,
                         "evaluation": evaluation,
-                        "raw_response": response
+                        "raw_response": message_content
                     }
             
             return {
                 "success": False,
                 "error": "Could not parse evaluation JSON",
-                "raw_response": response
+                "raw_response": message_content
             }
             
         except Exception as e:
