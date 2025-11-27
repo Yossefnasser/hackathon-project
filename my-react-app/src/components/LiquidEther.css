@@ -1,12 +1,10 @@
-.liquid-ether-container {
-    position: relative;
-    overflow: hidden;
+.liquid-ether-canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
-    touch-action: none;
-    pointer-events: auto;
-}
-
-.liquid-ether-container canvas {
-    pointer-events: auto;
+    z-index: 0;
+    pointer-events: none;
+    background: radial-gradient(circle at 50% 50%, #0f172a 0%, #020617 100%);
 }
