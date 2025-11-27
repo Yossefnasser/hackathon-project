@@ -4,6 +4,8 @@ import base64
 import os
 from fastapi import APIRouter, HTTPException
 from dotenv import load_dotenv
+from app.services.evaluation import CodeEvaluationService
+from pydantic import BaseModel
 
 load_dotenv()
 
@@ -19,6 +21,14 @@ HEADERS = {"Authorization": f"token {GITHUB_TOKEN}"} if GITHUB_TOKEN else {}
 
 # Fetch CLOSED issues (they have solutions!) - get more to filter out PRs
 ISSUES_URL = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/issues?state=closed&per_page=30"
+
+class CodeSubmission(BaseModel):
+    task_id: int
+    file_path: str  # which file they're modifying
+    user_code: str  # their solution
+
+# Initialize evaluation service
+evaluator = CodeEvaluationService()
 
 def is_valid_issue(issue):
     # Skip pull requests
@@ -222,3 +232,47 @@ async def browse_repo(path: str = ""):
         } for item in items]
     }
 
+@router.post("/submit-code")
+async def submit_code(submission: CodeSubmission):
+    """Submit code for evaluation"""
+    try:
+        # Get the task details
+        task = await get_task(submission.task_id)
+        
+        # Find the original code file that matches the submission
+        original_file = None
+        for file in task.get("code_files", []):
+            if file["path"] == submission.file_path:
+                original_file = file
+                break
+        
+        if not original_file:
+            raise HTTPException(400, f"No original file found for path: {submission.file_path}")
+        
+        # Evaluate the code
+        evaluation_result = await evaluator.evaluate_code(
+            issue_title=task["title"],
+            issue_body=task["description"],
+            original_code=original_file["content"],
+            user_code=submission.user_code
+        )
+        
+        if evaluation_result["success"]:
+            evaluation = evaluation_result["evaluation"]
+            score = evaluator.calculate_score(evaluation)
+            
+            return {
+                "success": True,
+                "score": score,
+                "evaluation": evaluation,
+                "feedback": evaluation_result["raw_response"]
+            }
+        else:
+            return {
+                "success": False,
+                "error": evaluation_result["error"],
+                "raw_response": evaluation_result.get("raw_response")
+            }
+    
+    except Exception as e:
+        raise HTTPException(500, f"Evaluation failed: {str(e)}")
