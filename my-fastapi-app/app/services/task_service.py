@@ -1,4 +1,3 @@
-import os
 import re
 import base64
 from typing import List, Dict, Optional
@@ -33,8 +32,11 @@ EXT_LANGUAGE_MAP = {
 	"sql": "SQL"
 }
 
-TRUNCATION_LIMIT = 200_000
-TRUNCATION_PREVIEW = 5_000
+"""
+Truncation removed: always return full file contents so patches
+can be mapped to actual locations in files. The response keeps a
+"truncated" flag for compatibility, but it will always be False.
+"""
 
 
 def build_headers(token: Optional[str]) -> Dict[str, str]:
@@ -85,15 +87,11 @@ async def fetch_file_content(
 		if res.status_code == 200:
 			data = res.json()
 			raw = base64.b64decode(data["content"]).decode("utf-8", errors="replace")
-			truncated = False
-			if len(raw) > TRUNCATION_LIMIT:
-				truncated = True
-				raw = raw[:TRUNCATION_PREVIEW]
 			return {
 				"path": path,
 				"content": raw,
 				"language": detect_language(path),
-				"truncated": truncated
+				"truncated": False
 			}
 	except HTTPException:
 		raise
@@ -158,17 +156,13 @@ async def get_files_from_pr(
 				if content_res.status_code == 200:
 					file_data = content_res.json()
 					raw = base64.b64decode(file_data["content"]).decode("utf-8", errors="replace")
-					truncated = False
-					if len(raw) > TRUNCATION_LIMIT:
-						truncated = True
-						raw = raw[:TRUNCATION_PREVIEW]
 					code_files.append({
 						"path": filename,
 						"content": raw,
 						"patch": patch,
 						"language": language,
 						"before_missing": before_missing,
-						"truncated": truncated
+						"truncated": False
 					})
 			except HTTPException:
 				raise
@@ -179,7 +173,6 @@ async def get_files_from_pr(
 			before_missing = True
 			head_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{filename}?ref={head_sha}"
 			content_value = ""
-			truncated = False
 			try:
 				head_res = await client.get(head_url, headers=headers, timeout=15.0)
 				if is_rate_limited(head_res):
@@ -187,9 +180,6 @@ async def get_files_from_pr(
 				if head_res.status_code == 200:
 					head_data = head_res.json()
 					raw = base64.b64decode(head_data["content"]).decode("utf-8", errors="replace")
-					if len(raw) > TRUNCATION_LIMIT:
-						truncated = True
-						raw = raw[:TRUNCATION_PREVIEW]
 					content_value = raw
 			except HTTPException:
 				raise
@@ -202,7 +192,7 @@ async def get_files_from_pr(
 				"patch": patch,
 				"language": language,
 				"before_missing": before_missing,
-				"truncated": truncated
+				"truncated": False
 			})
 
 	return code_files
