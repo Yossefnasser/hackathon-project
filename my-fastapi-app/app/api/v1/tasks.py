@@ -1,7 +1,8 @@
 import os
 import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from dotenv import load_dotenv
+from sqlalchemy.orm import Session
 
 from app.services.task_service import (
     build_headers,
@@ -9,6 +10,9 @@ from app.services.task_service import (
     fetch_file_content,
     map_issue
 )
+from app.services.db_service import task_exists, save_task, get_all_tasks, get_task_by_id
+from app.core.database import SessionLocal
+from datetime import datetime
 
 load_dotenv()
 
@@ -21,12 +25,17 @@ GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 HEADERS = build_headers(GITHUB_TOKEN)
 ISSUES_URL = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/issues?state=closed&per_page=30"
 
-HEADERS = build_headers(GITHUB_TOKEN)
-ISSUES_URL = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/issues?state=closed&per_page=30"
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 @router.get("/get-tasks")
-async def get_tasks():
+async def get_tasks(db: Session = Depends(get_db)):
     async with httpx.AsyncClient() as client:
         res = await client.get(ISSUES_URL, headers=HEADERS, timeout=15.0)
 
@@ -39,7 +48,13 @@ async def get_tasks():
 
         tasks = []
         for issue in issues:
-            tasks.append(await map_issue(issue, GITHUB_OWNER, GITHUB_REPO, client, HEADERS))
+            task_data = await map_issue(issue, GITHUB_OWNER, GITHUB_REPO, client, HEADERS)
+            tasks.append(task_data)
+            
+            # Save to DB only if: (1) not already in DB and (2) has code files
+            if not task_exists(db, GITHUB_OWNER, GITHUB_REPO, task_data["id"]):
+                if task_data.get("code_files"):
+                    save_task(db, task_data, GITHUB_OWNER, GITHUB_REPO)
 
     return {"tasks": tasks}
 
@@ -90,5 +105,116 @@ async def browse_repo(path: str = ""):
                 "type": item["type"]
             }
             for item in items
+        ]
+    }
+
+
+@router.get("/tasks")
+async def get_frontend_tasks(db: Session = Depends(get_db)):
+    """Get all tasks formatted for the React frontend"""
+    tasks = get_all_tasks(db)
+    
+    formatted_tasks = []
+    for task in tasks:
+        # Calculate days ago from created_at
+        days_ago = 1
+        if task.created_at:
+            try:
+                created = datetime.fromisoformat(task.created_at.replace('Z', '+00:00'))
+                days_ago = (datetime.now(created.tzinfo) - created).days
+            except:
+                pass
+        
+        # Determine difficulty (simple heuristic based on code files count)
+        code_file_count = len(task.code_files)
+        if code_file_count == 0:
+            difficulty = "Easy"
+        elif code_file_count <= 2:
+            difficulty = "Medium"
+        else:
+            difficulty = "Hard"
+        
+        # Parse labels
+        labels_list = task.labels.split(',') if task.labels else []
+        
+        formatted_tasks.append({
+            "id": task.issue_number,
+            "title": task.title,
+            "description": task.description or "",
+            "difficulty": difficulty,
+            "labels": labels_list,
+            "daysAgo": days_ago,
+            "category": "Bug Fix" if "bug" in task.title.lower() else "Feature",
+            "html_url": task.html_url,
+            "created_at": task.created_at,
+            "closed_at": task.closed_at,
+            "owner": task.owner,
+            "repo": task.repo,
+            "code_files": [
+                {
+                    "path": cf.path,
+                    "content": cf.content,
+                    "language": cf.language,
+                    "before_missing": cf.before_missing,
+                    "patch": cf.patch
+                }
+                for cf in task.code_files
+            ]
+        })
+    
+    return {"tasks": formatted_tasks}
+
+
+@router.get("/tasks/{task_id}")
+async def get_frontend_task_detail(task_id: int, db: Session = Depends(get_db)):
+    """Get a single task detail formatted for the React frontend"""
+    task = get_task_by_id(db, GITHUB_OWNER, GITHUB_REPO, task_id)
+    
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    # Calculate days ago
+    days_ago = 1
+    if task.created_at:
+        try:
+            created = datetime.fromisoformat(task.created_at.replace('Z', '+00:00'))
+            days_ago = (datetime.now(created.tzinfo) - created).days
+        except:
+            pass
+    
+    # Determine difficulty
+    code_file_count = len(task.code_files)
+    if code_file_count == 0:
+        difficulty = "Easy"
+    elif code_file_count <= 2:
+        difficulty = "Medium"
+    else:
+        difficulty = "Hard"
+    
+    labels_list = task.labels.split(',') if task.labels else []
+    
+    return {
+        "id": task.issue_number,
+        "title": task.title,
+        "description": task.description or "",
+        "difficulty": difficulty,
+        "labels": labels_list,
+        "daysAgo": days_ago,
+        "category": "Bug Fix" if "bug" in task.title.lower() else "Feature",
+        "html_url": task.html_url,
+        "created_at": task.created_at,
+        "closed_at": task.closed_at,
+        "owner": task.owner,
+        "repo": task.repo,
+        "status": "Closed" if task.closed_at else "Open",
+        "code_files": [
+            {
+                "path": cf.path,
+                "content": cf.content,
+                "language": cf.language,
+                "before_missing": cf.before_missing,
+                "patch": cf.patch
+            }
+            for cf in task.code_files
         ]
     }
