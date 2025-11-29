@@ -28,6 +28,8 @@ def get_task_by_id(db: Session, owner: str, repo: str, issue_number: int) -> Opt
 
 def save_task(db: Session, task_data: dict, owner: str, repo: str) -> Task:
     """Save task and its code files to database"""
+    import json
+    
     # Create task
     task = Task(
         issue_number=task_data["id"],
@@ -35,7 +37,13 @@ def save_task(db: Session, task_data: dict, owner: str, repo: str) -> Task:
         repo=repo,
         title=task_data["title"],
         description=task_data.get("description", ""),
+        detailed_description=task_data.get("detailedDescription", ""),
         labels=",".join(task_data.get("labels", [])),
+        difficulty=task_data.get("difficulty"),
+        category=task_data.get("category"),
+        time_estimate=task_data.get("timeEstimate"),
+        hints=json.dumps(task_data.get("hints", [])),
+        technologies=",".join(task_data.get("technologies", [])),
         html_url=task_data.get("html_url", ""),
         created_at=task_data.get("created_at", ""),
         closed_at=task_data.get("closed_at", "")

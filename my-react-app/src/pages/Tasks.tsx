@@ -1,4 +1,4 @@
-import { useState, type JSX } from 'react';
+import { useState, useEffect, type JSX } from 'react';
 import { Link } from 'react-router-dom';
 import './Tasks.css';
 
@@ -71,102 +71,59 @@ interface Task {
     category: string;
 }
 
+const getIconForCategory = (category: string) => {
+    if (category.toLowerCase().includes('bug')) return <BugIcon />;
+    if (category.toLowerCase().includes('doc')) return <DocIcon />;
+    if (category.toLowerCase().includes('test')) return <ScienceIcon />;
+    if (category.toLowerCase().includes('performance')) return <SpeedIcon />;
+    if (category.toLowerCase().includes('feature')) return <PaletteIcon />;
+    return <CodeIcon />;
+};
+
+const getIconColor = (difficulty: string) => {
+    switch (difficulty) {
+        case 'Easy': return 'text-green-400';
+        case 'Medium': return 'text-yellow-400';
+        case 'Hard': return 'text-red-400';
+        default: return 'text-blue-400';
+    }
+};
+
 export default function Tasks() {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedDifficulty, setSelectedDifficulty] = useState<string>('All');
     const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'difficulty'>('newest');
     const [showFilters, setShowFilters] = useState(false);
+    const [allTasks, setAllTasks] = useState<Task[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
-    const allTasks: Task[] = [
-        {
-            id: 8452,
-            title: 'Fix alignment issue on mobile navigation bar',
-            description: 'The main logo and menu items are misaligned on screen widths below 768px. Need to adjust flexbox properties and add proper responsive breakpoints.',
-            difficulty: 'Easy',
-            labels: ['JavaScript', 'UI', 'Mobile'],
-            icon: <BugIcon />,
-            iconColor: 'text-green-400',
-            daysAgo: 3,
-            category: 'Bug Fix'
-        },
-        {
-            id: 8453,
-            title: 'Add dark mode toggle to user settings',
-            description: 'Users should be able to switch between light and dark themes in their profile settings. Implement theme persistence using localStorage.',
-            difficulty: 'Easy',
-            labels: ['React', 'Enhancement', 'UI'],
-            icon: <PaletteIcon />,
-            iconColor: 'text-purple-400',
-            daysAgo: 5,
-            category: 'Feature'
-        },
-        {
-            id: 8454,
-            title: 'Update installation guide in README.md',
-            description: 'The current documentation is outdated and needs to be updated with new dependencies, environment variables, and deployment instructions.',
-            difficulty: 'Easy',
-            labels: ['Documentation', 'Good First Issue'],
-            icon: <DocIcon />,
-            iconColor: 'text-blue-400',
-            daysAgo: 1,
-            category: 'Documentation'
-        },
-        {
-            id: 8455,
-            title: 'Write unit tests for the authentication service',
-            description: 'The authentication service lacks proper test coverage, leading to potential bugs. Add comprehensive unit tests using Jest and React Testing Library.',
-            difficulty: 'Medium',
-            labels: ['Python', 'Testing', 'Backend'],
-            icon: <ScienceIcon />,
-            iconColor: 'text-cyan-400',
-            daysAgo: 7,
-            category: 'Testing'
-        },
-        {
-            id: 8456,
-            title: 'Refactor user model to use TypeScript',
-            description: 'Convert the existing JavaScript user model to TypeScript for better type safety and improved developer experience. Update all related components.',
-            difficulty: 'Medium',
-            labels: ['TypeScript', 'Refactor', 'Backend'],
-            icon: <CodeIcon />,
-            iconColor: 'text-indigo-400',
-            daysAgo: 2,
-            category: 'Refactoring'
-        },
-        {
-            id: 8457,
-            title: 'Optimize image loading on the homepage',
-            description: 'Images on the homepage are loading slowly, affecting user experience. Implement lazy loading, WebP format, and proper image optimization.',
-            difficulty: 'Medium',
-            labels: ['JavaScript', 'Performance', 'Frontend'],
-            icon: <SpeedIcon />,
-            iconColor: 'text-teal-400',
-            daysAgo: 4,
-            category: 'Performance'
-        },
-        {
-            id: 8458,
-            title: 'Implement API rate limiting',
-            description: 'Add rate limiting to prevent API abuse. Use Redis for distributed rate limiting across multiple server instances.',
-            difficulty: 'Hard',
-            labels: ['Backend', 'Security', 'Node.js'],
-            icon: <BugIcon />,
-            iconColor: 'text-red-400',
-            daysAgo: 6,
-            category: 'Security'
-        },
-        {
-            id: 8459,
-            title: 'Add real-time notifications system',
-            description: 'Implement WebSocket-based real-time notifications for user actions, messages, and system alerts using Socket.io.',
-            difficulty: 'Hard',
-            labels: ['WebSocket', 'Real-time', 'Full-stack'],
-            icon: <CodeIcon />,
-            iconColor: 'text-yellow-400',
-            daysAgo: 8,
-            category: 'Feature'
-        }
-    ];
+    useEffect(() => {
+        const fetchTasks = async () => {
+            try {
+                setLoading(true);
+                const response = await fetch('http://localhost:8000/api/v1/tasks');
+                if (!response.ok) throw new Error('Failed to fetch tasks');
+                const data = await response.json();
+
+                const tasksWithIcons = data.tasks.map((task: any) => ({
+                    ...task,
+                    icon: getIconForCategory(task.category),
+                    iconColor: getIconColor(task.difficulty)
+                }));
+
+                setAllTasks(tasksWithIcons);
+                setError(null);
+            } catch (err) {
+                setError(err instanceof Error ? err.message : 'Failed to load tasks');
+                console.error('Error fetching tasks:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchTasks();
+    }, []);
 
     const filteredTasks = allTasks
         .filter(task => {
@@ -307,7 +264,18 @@ export default function Tasks() {
                 </div>
 
                 {/* Tasks Grid */}
-                {filteredTasks.length === 0 ? (
+                {loading ? (
+                    <div className="no-results">
+                        <div className="no-results-icon">⏳</div>
+                        <h3 className="no-results-title">Loading tasks...</h3>
+                    </div>
+                ) : error ? (
+                    <div className="no-results">
+                        <div className="no-results-icon">❌</div>
+                        <h3 className="no-results-title">Error loading tasks</h3>
+                        <p className="no-results-text">{error}</p>
+                    </div>
+                ) : filteredTasks.length === 0 ? (
                     <div className="no-results">
                         <div className="no-results-icon">🔍</div>
                         <h3 className="no-results-title">No tasks found</h3>

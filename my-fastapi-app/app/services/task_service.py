@@ -4,6 +4,7 @@ from typing import List, Dict, Optional
 
 import httpx
 from fastapi import HTTPException
+from app.services.llm_service import enrich_task
 
 # Map extensions to languages for Monaco/editor hints
 EXT_LANGUAGE_MAP = {
@@ -37,6 +38,45 @@ Truncation removed: always return full file contents so patches
 can be mapped to actual locations in files. The response keeps a
 "truncated" flag for compatibility, but it will always be False.
 """
+
+# Technology detection patterns
+TECH_PATTERNS = {
+    "React": [".jsx", ".tsx", "react", "useState", "useEffect"],
+    "Vue": [".vue", "vue", "@vue"],
+    "Angular": ["angular", "@angular"],
+    "Django": ["django", "settings.py", "urls.py", "models.py"],
+    "Flask": ["flask", "app.py"],
+    "FastAPI": ["fastapi", "pydantic"],
+    "Express": ["express", "app.js"],
+    "Node.js": ["package.json", "node_modules"],
+    "Spring": ["spring", "pom.xml", "@SpringBoot"],
+    "Laravel": ["laravel", "artisan"],
+    "Rails": ["rails", "Gemfile"],
+    "Next.js": ["next.config", "_app.tsx", "pages/"],
+    "TypeScript": [".ts", ".tsx"],
+    "JavaScript": [".js", ".jsx"],
+    "Python": [".py"],
+    "Java": [".java"],
+    "Go": [".go"],
+    "Rust": [".rs"],
+}
+
+
+def detect_technologies(code_files: List[Dict]) -> List[str]:
+    """Detect technologies from file paths and content"""
+    techs = set()
+    
+    for file in code_files:
+        path = file.get("path", "").lower()
+        content = (file.get("content") or "").lower()
+        
+        for tech, patterns in TECH_PATTERNS.items():
+            for pattern in patterns:
+                if pattern in path or pattern in content:
+                    techs.add(tech)
+                    break
+    
+    return sorted(list(techs))
 
 
 def build_headers(token: Optional[str]) -> Dict[str, str]:
@@ -257,7 +297,11 @@ async def map_issue(
 	headers: Dict[str, str]
 ) -> Dict:
 	code_files = await get_files_from_linked_pr(issue, owner, repo, client, headers)
-	return {
+	
+	# Detect technologies
+	technologies = detect_technologies(code_files)
+	
+	task_data = {
 		"id": issue["number"],
 		"title": issue["title"],
 		"description": issue.get("body", ""),
@@ -265,6 +309,13 @@ async def map_issue(
 		"html_url": issue["html_url"],
 		"created_at": issue["created_at"],
 		"closed_at": issue.get("closed_at"),
-		"code_files": code_files
+		"code_files": code_files,
+		"technologies": technologies
 	}
+	
+	# Enrich with LLM if we have code files
+	if code_files:
+		task_data = await enrich_task(task_data)
+	
+	return task_data
 

@@ -15,7 +15,14 @@ class Task(Base):
 
     title = Column(String(500), nullable=False)
     description = Column(Text, nullable=True)
+    detailed_description = Column(Text, nullable=True)  # Extended description for Medium/Hard tasks
     labels = Column(Text, nullable=True)  # comma-separated labels for simplicity
+    
+    difficulty = Column(String(20), nullable=True)  # Easy, Medium, Hard
+    category = Column(String(50), nullable=True)  # Bug Fix, Feature, etc.
+    time_estimate = Column(String(20), nullable=True)  # 15 min, 30 min, etc.
+    hints = Column(Text, nullable=True)  # JSON array of hints
+    technologies = Column(Text, nullable=True)  # comma-separated: React, Django, etc.
 
     html_url = Column(String(500), nullable=True)
     created_at = Column(String(100), nullable=True)

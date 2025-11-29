@@ -112,6 +112,7 @@ async def browse_repo(path: str = ""):
 @router.get("/tasks")
 async def get_frontend_tasks(db: Session = Depends(get_db)):
     """Get all tasks formatted for the React frontend"""
+    import json
     tasks = get_all_tasks(db)
     
     formatted_tasks = []
@@ -125,26 +126,23 @@ async def get_frontend_tasks(db: Session = Depends(get_db)):
             except:
                 pass
         
-        # Determine difficulty (simple heuristic based on code files count)
-        code_file_count = len(task.code_files)
-        if code_file_count == 0:
-            difficulty = "Easy"
-        elif code_file_count <= 2:
-            difficulty = "Medium"
-        else:
-            difficulty = "Hard"
-        
-        # Parse labels
+        # Parse fields
         labels_list = task.labels.split(',') if task.labels else []
+        techs_list = task.technologies.split(',') if task.technologies else []
+        hints_list = json.loads(task.hints) if task.hints else []
         
         formatted_tasks.append({
             "id": task.issue_number,
             "title": task.title,
             "description": task.description or "",
-            "difficulty": difficulty,
+            "detailedDescription": task.detailed_description or "",
+            "difficulty": task.difficulty or "Medium",
+            "category": task.category or "Bug Fix",
+            "timeEstimate": task.time_estimate or "30 min",
+            "hints": hints_list,
+            "technologies": techs_list,
             "labels": labels_list,
             "daysAgo": days_ago,
-            "category": "Bug Fix" if "bug" in task.title.lower() else "Feature",
             "html_url": task.html_url,
             "created_at": task.created_at,
             "closed_at": task.closed_at,
@@ -182,25 +180,23 @@ async def get_frontend_task_detail(task_id: int, db: Session = Depends(get_db)):
         except:
             pass
     
-    # Determine difficulty
-    code_file_count = len(task.code_files)
-    if code_file_count == 0:
-        difficulty = "Easy"
-    elif code_file_count <= 2:
-        difficulty = "Medium"
-    else:
-        difficulty = "Hard"
-    
+    import json
     labels_list = task.labels.split(',') if task.labels else []
+    techs_list = task.technologies.split(',') if task.technologies else []
+    hints_list = json.loads(task.hints) if task.hints else []
     
     return {
         "id": task.issue_number,
         "title": task.title,
         "description": task.description or "",
-        "difficulty": difficulty,
+        "detailedDescription": task.detailed_description or "",
+        "difficulty": task.difficulty or "Medium",
+        "category": task.category or "Bug Fix",
+        "timeEstimate": task.time_estimate or "30 min",
+        "hints": hints_list,
+        "technologies": techs_list,
         "labels": labels_list,
         "daysAgo": days_ago,
-        "category": "Bug Fix" if "bug" in task.title.lower() else "Feature",
         "html_url": task.html_url,
         "created_at": task.created_at,
         "closed_at": task.closed_at,
