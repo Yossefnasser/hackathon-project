@@ -1,11 +1,6 @@
-from pydantic import BaseSettings
+import os
+from dotenv import load_dotenv
 
-class Settings(BaseSettings):
-    app_name: str = "My FastAPI App"
-    admin_email: str = "admin@example.com"
-    items_per_page: int = 10
+load_dotenv()
 
-    class Config:
-        env_file = ".env"
-
-settings = Settings()
+DATABASE_URL = os.getenv("DATABASE_URL")

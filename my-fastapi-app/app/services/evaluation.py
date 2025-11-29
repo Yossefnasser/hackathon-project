@@ -1,8 +1,7 @@
 import json
 import re
 from typing import Dict, Any
-import asyncio
-from g4f.client import AsyncClient
+from g4f import AsyncClient
 
 class CodeEvaluationService:
     def __init__(self):

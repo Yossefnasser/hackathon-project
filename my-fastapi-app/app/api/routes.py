@@ -1,10 +1,11 @@
 from fastapi import APIRouter
-from app.api.v1 import tasks
+from app.api.v1 import tasks, evaluate
 
 router = APIRouter()
 
-# Include v1 tasks router
+# Include v1 routers
 router.include_router(tasks.router, prefix="/api/v1", tags=["tasks"])
+router.include_router(evaluate.router, prefix="/api/v1", tags=["evaluate"])
 
 @router.get("/")
 async def read_root():

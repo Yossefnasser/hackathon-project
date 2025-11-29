@@ -3,3 +3,7 @@ uvicorn
 pydantic
 python-dotenv
 httpx
+g4f
+SQLAlchemy
+psycopg2-binary
+pydantic-settings
